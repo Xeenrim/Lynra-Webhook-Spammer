@@ -7,7 +7,6 @@
 - [🛠 Files](#-files)
 - [📢 Features](#-features)
 - [📬 Example `config.json`](#-example-configjson)
-- [✅ Done? Run it again!](#-done-run-it-again)
 - [🧠 Reminder](#-reminder)
 
 ---
