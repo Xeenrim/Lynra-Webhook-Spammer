@@ -1,10 +1,5 @@
 # Lynra Webhook Spammer
 
-> ⚠️ For **educational** and **testing** purposes only.  
-> Do **not** use on real servers or without permission — doing so violates Discord's [Terms of Service](https://discord.com/terms).
-
----
-
 ## 📋 Table of Contents
 
 - [📸 Screenshot Preview](#-screenshot-preview)
@@ -64,7 +59,5 @@
   "username": ".gg/lynra",
   "avatar_url": "https://cdn.discordapp.com/attachments/1386363599353680083/1387836855067869305/output-onlinepngtools_1.png?ex=685ecb4b&is=685d79cb&hm=805cd4c35a1880da5855e4d2b3e837fae170ac2cead15e0e5d1f0264c99853ca&"
 
-
-
-
-(yes this readme was made with chatgpt im too lazy to make it )
+```
+(yes this readme was made with chatgpt because i was too lazy to make it 😭🙏)
