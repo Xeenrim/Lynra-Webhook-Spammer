@@ -157,12 +157,12 @@ class WebhookMessenger:
                 continue
                 
                 while True:
-                message = input(f"\n{Fore.LIGHTCYAN_EX}💬 Enter message to spam (or 'back' to return to menu):{Style.RESET_ALL} ").strip()
-                if message.lower() == 'back':
-                    break
-                if message:
-                    break
-                print(f"{Fore.RED}Message cannot be empty. Try again.{Style.RESET_ALL}")
+                    message = input(f"\n{Fore.LIGHTCYAN_EX}💬 Enter message to spam (or 'back' to return to menu):{Style.RESET_ALL} ").strip()
+                    if message.lower() == 'back':
+                        break
+                    if message:
+                        break
+                    print(f"{Fore.RED}Message cannot be empty. Try again.{Style.RESET_ALL}")
 
             while True:
                 try:
