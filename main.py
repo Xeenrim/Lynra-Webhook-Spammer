@@ -40,6 +40,8 @@ class WebhookMessenger:
         self.message_count = 0
         self.max_messages = 0
         self.running = True
+        self.delay = 1.0  # Default delay between messages in seconds
+        self.max_threads = 5  # Maximum concurrent threads
 
     def clean_temp_files(self):
         if os.path.exists("]"):
@@ -80,18 +82,32 @@ class WebhookMessenger:
             "avatar_url": self.avatar_url
         }
 
-        try:
-            response = requests.post(self.webhook_url, json=data)
-            if response.status_code == 204:
-                print(MessageStatus.SUCCESS.value)
-            elif response.status_code == 429:
-                print(MessageStatus.RATE_LIMITED.value)
-                time.sleep(response.json().get("retry_after", 1))
-                self.send_message(content)
-            else:
-                print(MessageStatus.FAILURE.value)
-        except Exception:
-            print(MessageStatus.FAILURE.value)
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                response = requests.post(self.webhook_url, json=data, timeout=10)  # 10 second timeout
+                
+                if response.status_code == 204:
+                    print(MessageStatus.SUCCESS.value)
+                    return True
+                elif response.status_code == 429:
+                    retry_after = response.json().get("retry_after", 5) + 1  # Add 1 second buffer
+                    print(f"{MessageStatus.RATE_LIMITED.value} - Waiting {retry_after} seconds...")
+                    time.sleep(retry_after)
+                    retry_count += 1
+                else:
+                    print(f"{MessageStatus.FAILURE.value} (Status: {response.status_code})")
+                    return False
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"{MessageStatus.FAILURE.value} (Error: {str(e)})")
+                time.sleep(2)  # Wait before retrying on connection error
+                retry_count += 1
+        
+        print(f"{Fore.RED}» Max retries reached for message{Style.RESET_ALL}")
+        return False
 
     def run(self):
         while True:
@@ -104,21 +120,47 @@ class WebhookMessenger:
             while True:
                 try:
                     self.max_messages = int(input(f"{Fore.LIGHTCYAN_EX}🔁 How many times to send it:{Style.RESET_ALL} "))
+                    if self.max_messages <= 0:
+                        print(f"{Fore.RED}Please enter a number greater than 0.{Style.RESET_ALL}")
+                        continue
                     break
                 except ValueError:
                     print(f"{Fore.RED}Enter a valid number!{Style.RESET_ALL}")
 
+            # Get delay between messages
+            while True:
+                try:
+                    delay_input = input(f"{Fore.LIGHTCYAN_EX}⏱ Delay between messages (seconds, 0.5 recommended):{Style.RESET_ALL} ").strip()
+                    self.delay = max(0.1, float(delay_input))  # Minimum 0.1 second delay
+                    break
+                except ValueError:
+                    print(f"{Fore.RED}Please enter a valid number!{Style.RESET_ALL}")
+
             print(f"{Fore.LIGHTGREEN_EX}⏱ Spamming started...{Style.RESET_ALL}")
             start_time = time.time()
 
-            threads = []
-            for _ in range(self.max_messages):
+            # Send messages with delay and thread limiting
+            for i in range(self.max_messages):
+                # Wait if we've reached max threads
+                while threading.active_count() > self.max_threads:
+                    time.sleep(0.1)
+                
                 thread = threading.Thread(target=self.send_message, args=(message,))
-                threads.append(thread)
                 thread.start()
+                
+                # Small delay between starting threads
+                time.sleep(0.05)
+                
+                # Show progress
+                if (i + 1) % 10 == 0 or (i + 1) == self.max_messages:
+                    print(f"{Fore.CYAN}» Sent {i + 1}/{self.max_messages} messages{Style.RESET_ALL}")
+                
+                # Add delay between messages
+                time.sleep(self.delay)
 
-            for thread in threads:
-                thread.join()
+            # Wait for all threads to complete
+            while threading.active_count() > 1:  # 1 for main thread
+                time.sleep(0.1)
 
             end_time = time.time()
             duration = round(end_time - start_time, 2)
