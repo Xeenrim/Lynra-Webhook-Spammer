@@ -17,6 +17,8 @@ class MessageStatus(Enum):
     RATE_LIMITED = f"{Fore.YELLOW}⚠ Rate limited (waiting to retry){Style.RESET_ALL}"
     INVALID_URL = f"{Fore.RED}✗ Invalid Discord webhook URL{Style.RESET_ALL}"
     FINISHED = f"{Fore.CYAN}✔ Spamming Completed{Style.RESET_ALL}"
+    DELETED = f"{Fore.GREEN}✓ Webhook successfully deleted{Style.RESET_ALL}"
+    DELETE_FAILED = f"{Fore.RED}✗ Failed to delete webhook{Style.RESET_ALL}"
 
 ASCII_LOGO = f"""{Fore.LIGHTMAGENTA_EX}
  ██▓   ▓██   ██▓ ███▄    █  ██▀███   ▄▄▄      
@@ -36,12 +38,12 @@ class WebhookMessenger:
         print(ASCII_LOGO)
         self.clean_temp_files()
         self.load_config()
-        self.get_webhook()
+        self.webhook_url = ""
         self.message_count = 0
         self.max_messages = 0
         self.running = True
-        self.delay = 1.0  # Default delay between messages in seconds
-        self.max_threads = 5  # Maximum concurrent threads
+        self.delay = 1.0  
+        self.max_threads = 5  
 
     def clean_temp_files(self):
         if os.path.exists("]"):
@@ -67,10 +69,11 @@ class WebhookMessenger:
         print(f"{Fore.LIGHTBLACK_EX}{'═'*30}{Style.RESET_ALL}")
         
         while True:
-            self.webhook_url = input(f"{Fore.LIGHTYELLOW_EX}⚡ Enter webhook URL:{Style.RESET_ALL} ").strip()
-            if self.validate_webhook():
-                break
-            print(f"{Fore.RED}Invalid URL format! Must start with: 'https://discord.com/api/webhooks/'{Style.RESET_ALL}")
+            webhook_url = input(f"{Fore.LIGHTYELLOW_EX}⚡ Enter webhook URL:{Style.RESET_ALL} ").strip()
+            if webhook_url.startswith("https://discord.com/api/webhooks/"):
+                self.webhook_url = webhook_url
+                return True
+            print(f"{Fore.RED}Invalid URL format! Must start with: 'https://discord.com/api/webhooks/'")
 
     def validate_webhook(self):
         return self.webhook_url.startswith("https://discord.com/api/webhooks/")
@@ -87,13 +90,13 @@ class WebhookMessenger:
         
         while retry_count < max_retries:
             try:
-                response = requests.post(self.webhook_url, json=data, timeout=10)  # 10 second timeout
+                response = requests.post(self.webhook_url, json=data, timeout=10)  
                 
                 if response.status_code == 204:
                     print(MessageStatus.SUCCESS.value)
                     return True
                 elif response.status_code == 429:
-                    retry_after = response.json().get("retry_after", 5) + 1  # Add 1 second buffer
+                    retry_after = response.json().get("retry_after", 5) + 1 
                     print(f"{MessageStatus.RATE_LIMITED.value} - Waiting {retry_after} seconds...")
                     time.sleep(retry_after)
                     retry_count += 1
@@ -103,16 +106,60 @@ class WebhookMessenger:
                     
             except requests.exceptions.RequestException as e:
                 print(f"{MessageStatus.FAILURE.value} (Error: {str(e)})")
-                time.sleep(2)  # Wait before retrying on connection error
+                time.sleep(2) 
                 retry_count += 1
         
         print(f"{Fore.RED}» Max retries reached for message{Style.RESET_ALL}")
         return False
 
+    def delete_webhook(self):
+        print(f"\n{Fore.YELLOW}⚠ WARNING: This will permanently delete the webhook. Continue? (y/n){Style.RESET_ALL}")
+        confirm = input("> ").strip().lower()
+        
+        if confirm != 'y':
+            print(f"{Fore.YELLOW}» Operation cancelled.{Style.RESET_ALL}")
+            return
+
+        try:
+            response = requests.delete(self.webhook_url)
+            if response.status_code == 204:
+                print(MessageStatus.DELETED.value)
+            else:
+                print(f"{MessageStatus.DELETE_FAILED.value} (Status: {response.status_code})")
+        except Exception as e:
+            print(f"{MessageStatus.DELETE_FAILED.value} (Error: {str(e)})")
+
     def run(self):
         while True:
-            while True:
-                message = input(f"{Fore.LIGHTCYAN_EX}💬 Enter message to spam:{Style.RESET_ALL} ").strip()
+            print(f"\n{Fore.LIGHTBLUE_EX}»»{Style.RESET_ALL} {Fore.CYAN}Main Menu{Style.RESET_ALL}")
+            print(f"{Fore.LIGHTBLACK_EX}{'═'*30}{Style.RESET_ALL}")
+            print(f"{Fore.LIGHTCYAN_EX}1. Spam Webhook")
+            print(f"2. Delete Webhook")
+            print(f"3. Exit{Style.RESET_ALL}")
+            
+            choice = input(f"\n{Fore.LIGHTYELLOW_EX}⚡ Select an option (1-3):{Style.RESET_ALL} ").strip()
+            
+            if choice == '3':
+                print(f"\n{Fore.LIGHTBLUE_EX}💬 Exiting...{Style.RESET_ALL}")
+                break
+                
+            if choice not in ['1', '2']:
+                print(f"{Fore.RED}Invalid option. Please try again.{Style.RESET_ALL}")
+                continue
+                
+
+            if not self.webhook_url:
+                if not self.get_webhook():
+                    continue
+                    
+            if choice == '2':
+                self.delete_webhook()
+                continue
+                
+                while True:
+                message = input(f"\n{Fore.LIGHTCYAN_EX}💬 Enter message to spam (or 'back' to return to menu):{Style.RESET_ALL} ").strip()
+                if message.lower() == 'back':
+                    break
                 if message:
                     break
                 print(f"{Fore.RED}Message cannot be empty. Try again.{Style.RESET_ALL}")
@@ -127,11 +174,10 @@ class WebhookMessenger:
                 except ValueError:
                     print(f"{Fore.RED}Enter a valid number!{Style.RESET_ALL}")
 
-            # Get delay between messages
             while True:
                 try:
                     delay_input = input(f"{Fore.LIGHTCYAN_EX}⏱ Delay between messages (seconds, 0.5 recommended):{Style.RESET_ALL} ").strip()
-                    self.delay = max(0.1, float(delay_input))  # Minimum 0.1 second delay
+                    self.delay = max(0.1, float(delay_input))  
                     break
                 except ValueError:
                     print(f"{Fore.RED}Please enter a valid number!{Style.RESET_ALL}")
@@ -139,27 +185,21 @@ class WebhookMessenger:
             print(f"{Fore.LIGHTGREEN_EX}⏱ Spamming started...{Style.RESET_ALL}")
             start_time = time.time()
 
-            # Send messages with delay and thread limiting
             for i in range(self.max_messages):
-                # Wait if we've reached max threads
                 while threading.active_count() > self.max_threads:
                     time.sleep(0.1)
                 
                 thread = threading.Thread(target=self.send_message, args=(message,))
                 thread.start()
                 
-                # Small delay between starting threads
                 time.sleep(0.05)
                 
-                # Show progress
                 if (i + 1) % 10 == 0 or (i + 1) == self.max_messages:
                     print(f"{Fore.CYAN}» Sent {i + 1}/{self.max_messages} messages{Style.RESET_ALL}")
                 
-                # Add delay between messages
                 time.sleep(self.delay)
 
-            # Wait for all threads to complete
-            while threading.active_count() > 1:  # 1 for main thread
+            while threading.active_count() > 1:  
                 time.sleep(0.1)
 
             end_time = time.time()
