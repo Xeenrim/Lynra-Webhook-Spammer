@@ -70,10 +70,34 @@ class WebhookMessenger:
         
         while True:
             webhook_url = input(f"{Fore.LIGHTYELLOW_EX}⚡ Enter webhook URL:{Style.RESET_ALL} ").strip()
-            if webhook_url.startswith("https://discord.com/api/webhooks/"):
-                self.webhook_url = webhook_url
-                return True
-            print(f"{Fore.RED}Invalid URL format! Must start with: 'https://discord.com/api/webhooks/'")
+            
+            if not webhook_url.startswith("https://discord.com/api/webhooks/"):
+                print(f"{Fore.RED}✗ Invalid URL format! Must start with: 'https://discord.com/api/webhooks/'{Style.RESET_ALL}")
+                continue
+                
+            print(f"{Fore.CYAN}🔍 Checking webhook...{Style.RESET_ALL}")
+            try:
+                response = requests.get(webhook_url, timeout=5)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    print(f"{Fore.GREEN}✓ Webhook is valid!{Style.RESET_ALL}")
+                    print(f"{Fore.CYAN}» Name: {data.get('name', 'Unknown')}")
+                    print(f"» Channel ID: {data.get('channel_id', 'Unknown')}")
+                    print(f"» Guild ID: {data.get('guild_id', 'Unknown')}{Style.RESET_ALL}")
+                    self.webhook_url = webhook_url
+                    return True
+                    
+                elif response.status_code == 404:
+                    print(f"{Fore.RED}✗ Webhook not found (404){Style.RESET_ALL}")
+                else:
+                    error_msg = response.text[:200].replace('\n', ' ').strip()
+                    print(f"{Fore.RED}✗ Webhook error: {response.status_code} - {error_msg}{Style.RESET_ALL}")
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"{Fore.RED}✗ Error connecting to webhook: {str(e)}{Style.RESET_ALL}")
+                
+            print(f"{Fore.YELLOW}Please check the URL and try again.{Style.RESET_ALL}")
 
     def validate_webhook(self):
         return self.webhook_url.startswith("https://discord.com/api/webhooks/")
